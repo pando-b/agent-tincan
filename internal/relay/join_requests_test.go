@@ -482,6 +482,18 @@ func TestJoinRequestConcurrentClaims(t *testing.T) {
 
 // Covers R9 and KTD11. A pending or an approved request expires 10 minutes
 // after filing; the sweep audits join_expired for each and a waiting status
+// The mesh's directory files on the relay's clock, so a test that moves
+// that clock past the expiry sees the request expire however long the
+// mesh took to start.
+func TestJoinRequestFiledOnRelayClock(t *testing.T) {
+	at := time.Date(2000, 1, 2, 3, 4, 5, 0, time.UTC)
+	m := testrelay.New(t, relay.Config{Now: func() time.Time { return at }})
+	a := mustFile(t, m.URL("stranger"), "codex")
+	if want := at.Add(identity.JoinRequestTTL); !a.ExpiresAt.Equal(want) {
+		t.Fatalf("expires %v, want %v", a.ExpiresAt, want)
+	}
+}
+
 // read returns.
 func TestJoinRequestExpires(t *testing.T) {
 	clk := &movingClock{t: time.Now()}
@@ -559,6 +571,25 @@ func TestJoinRequestStatusLeavesNoWaiter(t *testing.T) {
 	}
 	if got := m.Server.HubKeys(); got != before {
 		t.Fatalf("hub holds %d keys after the reads, want %d", got, before)
+	}
+}
+
+// A decision that lands between a status read's first read and its waiter
+// leaves a channel no later notify closes; the read that sees the request
+// is no longer pending clears it.
+func TestJoinRequestStatusClearsWaiterLeftByARace(t *testing.T) {
+	m := testrelay.New(t, relay.Config{})
+	a := mustFile(t, m.URL("stranger"), "codex")
+	before := m.Server.HubKeys()
+	if code, st := socketDecide(t, m, a.ID, "deny"); code != http.StatusOK || st.Status != identity.JoinDenied {
+		t.Fatalf("deny: %d %+v", code, st)
+	}
+	m.Server.LeaveJoinWaiter(a.ID)
+	if code, st := joinCall(t, "GET", m.URL("stranger"), "/v1/join-requests/"+a.ID+"?wait=5", "", nil); code != http.StatusOK || st.Status != identity.JoinDenied {
+		t.Fatalf("status of a denied request: %d %+v", code, st)
+	}
+	if got := m.Server.HubKeys(); got != before {
+		t.Fatalf("hub holds %d keys after the read, want %d", got, before)
 	}
 }
 

@@ -221,7 +221,9 @@ func (s *Server) joinVoided(ctx context.Context, jr identity.JoinRequest) {
 // holds a pending request until it is decided or the wait ends. It takes a
 // hub waiter only for the caller's own pending request, which a decision,
 // void, claim or the expiry sweep always notifies: an unknown, foreign or
-// final id would leave its key in the hub for good.
+// final id would leave its key in the hub for good. A read that finds the
+// request past pending clears its key, for a decision that lands between
+// the first read and the waiter.
 func (s *Server) handleJoinRequestStatus(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.joinNode(w, r)
 	if !ok {
@@ -238,6 +240,12 @@ func (s *Server) handleJoinRequestStatus(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			writeErr(w, joinStatusFor(err), err)
 			return true
+		}
+		if jr.Status != identity.JoinPending {
+			// Nothing waits on a request past pending. A decision that
+			// landed between the first read and the waiter below left a
+			// channel no later notify would close, so drop it here.
+			s.hub.notify(joinKey(id))
 		}
 		if jr.Status != identity.JoinPending || wait == 0 {
 			writeJSON(w, http.StatusOK, requesterView(jr))

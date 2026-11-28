@@ -633,6 +633,9 @@ func TestJoinRequestPrintedCommandsQuotePaths(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "Application Support", "tincan", "codex.json")
 	t.Setenv("TINCAN_CONFIG", path)
 	target := joinTarget{agent: client.JoinRequestAgent{Name: "codex", Kind: "codex"}, path: path}
+	if got, lit := configAssign(path), "TINCAN_CONFIG='"+path+"'"; got != lit {
+		t.Fatalf("configAssign(%q) = %q, want %q", path, got, lit)
+	}
 	want := "TINCAN_CONFIG=" + shellQuote(path) + " "
 	for name, got := range map[string]string{
 		"configEnvPrefix": configEnvPrefix(),

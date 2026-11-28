@@ -111,12 +111,13 @@ func joinRequestCommand(agents []client.JoinRequestAgent, relay string) string {
 	return configEnvPrefix() + "tincan join --request " + strings.Join(entries, ",") + " --relay " + relay
 }
 
-// configEnvPrefix is "TINCAN_CONFIG=<path> " when TINCAN_CONFIG is set.
+// configEnvPrefix is "TINCAN_CONFIG='<path>' " when TINCAN_CONFIG is set,
+// quoted so a path with a space, like macOS's, still pastes.
 func configEnvPrefix() string {
 	if os.Getenv("TINCAN_CONFIG") == "" {
 		return ""
 	}
-	return "TINCAN_CONFIG=" + client.ConfigPath() + " "
+	return "TINCAN_CONFIG=" + shellQuote(client.ConfigPath()) + " "
 }
 
 // describeJoinAgents lists agents with their kinds, for people.
@@ -282,7 +283,7 @@ func printJoinTargets(cmd *cobra.Command, targets []joinTarget) {
 	}
 	cmd.Printf("Each agent gets its own config; run its commands with its line:\n")
 	for _, t := range targets {
-		cmd.Printf("  TINCAN_CONFIG=%s   (%s)\n", t.path, t.agent.Name)
+		cmd.Printf("  TINCAN_CONFIG=%s   (%s)\n", shellQuote(t.path), t.agent.Name)
 	}
 }
 
@@ -430,7 +431,7 @@ func rejoinLines(p client.PendingJoinRequest, targets []joinTarget) string {
 }
 
 func rejoinLine(relay string, t joinTarget) string {
-	return fmt.Sprintf("TINCAN_CONFIG=%s tincan rejoin --relay %s --name %s", t.path, relay, t.agent.Name)
+	return fmt.Sprintf("TINCAN_CONFIG=%s tincan rejoin --relay %s --name %s", shellQuote(t.path), relay, t.agent.Name)
 }
 
 // finishJoinRequest ends a request that reached a final state without
@@ -510,7 +511,7 @@ func saveJoinedConfigs(ctx context.Context, cmd *cobra.Command, p client.Pending
 		if len(targets) == 1 {
 			cmd.Printf("Joined as %q%s. Config saved to %s\n", t.agent.Name, kind, t.path)
 		} else {
-			cmd.Printf("Joined as %q%s. Config saved to %s; run its commands with TINCAN_CONFIG=%s\n", t.agent.Name, kind, t.path, t.path)
+			cmd.Printf("Joined as %q%s. Config saved to %s; run its commands with TINCAN_CONFIG=%s\n", t.agent.Name, kind, t.path, shellQuote(t.path))
 		}
 	}
 	if len(unsaved) > 0 {

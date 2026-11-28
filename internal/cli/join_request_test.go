@@ -17,6 +17,7 @@ import (
 	"github.com/mvanhorn/agent-tincan/internal/identity"
 	"github.com/mvanhorn/agent-tincan/internal/relay"
 	"github.com/mvanhorn/agent-tincan/internal/testrelay"
+	"github.com/spf13/cobra"
 )
 
 // ownerRelay is the relay host's view of the mesh: a client of its admin
@@ -216,7 +217,7 @@ func TestJoinRequestTwoNames(t *testing.T) {
 	for _, a := range want {
 		path := filepath.Join(dir, a.Name+".json")
 		mustConfig(t, path, box, a.Name)
-		if !strings.Contains(out, "TINCAN_CONFIG="+path) {
+		if !strings.Contains(out, "TINCAN_CONFIG="+shellQuote(path)) {
 			t.Fatalf("output lacks TINCAN_CONFIG=%s:\n%s", path, out)
 		}
 		if k := agentKind(t, m, a.Name); k != a.Kind {
@@ -386,7 +387,7 @@ func TestJoinRequestWriteFailureRejoinHint(t *testing.T) {
 	l := pendingRequest(t, owner)
 	decide(t, owner, l.ID, true)
 	out, err := run1.wait(t)
-	hint := "TINCAN_CONFIG=" + helper + " tincan rejoin --relay " + box + " --name helper"
+	hint := "TINCAN_CONFIG=" + shellQuote(helper) + " tincan rejoin --relay " + box + " --name helper"
 	if err == nil || !strings.Contains(out+err.Error(), hint) || !strings.Contains(out+err.Error(), "disk full") {
 		t.Fatalf("want the rejoin hint %q, got %v\n%s", hint, err, out)
 	}
@@ -625,5 +626,29 @@ func TestJoinRequestRelayHostCommandsNeedSocket(t *testing.T) {
 		if _, err := run(t, Root(), args...); err == nil || !strings.Contains(err.Error(), "relay host") {
 			t.Fatalf("%v without a socket: %v", args, err)
 		}
+	}
+}
+
+// The commands join --request prints stay pasteable when the config path
+// has a space, as macOS's default under Application Support does.
+func TestJoinRequestPrintedCommandsQuotePaths(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Application Support", "tincan", "codex.json")
+	t.Setenv("TINCAN_CONFIG", path)
+	target := joinTarget{agent: client.JoinRequestAgent{Name: "codex", Kind: "codex"}, path: path}
+	want := "TINCAN_CONFIG=" + shellQuote(path) + " "
+	for name, got := range map[string]string{
+		"configEnvPrefix": configEnvPrefix(),
+		"rejoinLine":      rejoinLine("http://tincan-relay", target),
+	} {
+		if !strings.HasPrefix(got, want) {
+			t.Errorf("%s = %q, want it to start with %q", name, got, want)
+		}
+	}
+	cmd := &cobra.Command{}
+	var out strings.Builder
+	cmd.SetOut(&out)
+	printJoinTargets(cmd, []joinTarget{target, {agent: client.JoinRequestAgent{Name: "helper"}, path: path}})
+	if !strings.Contains(out.String(), "TINCAN_CONFIG="+shellQuote(path)) {
+		t.Errorf("printJoinTargets:\n%s\nwant quoted path %s", out.String(), shellQuote(path))
 	}
 }

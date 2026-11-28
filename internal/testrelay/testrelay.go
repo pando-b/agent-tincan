@@ -70,8 +70,6 @@ func start(t *testing.T, cfg relay.Config, adminLogins []string, wrap func(ident
 	if wrap != nil {
 		ids = wrap(st)
 	}
-	// The directory runs on the relay's clock, so a test that moves cfg.Now
-	// moves invite and join request times with it.
 	dir := identity.NewDirectory(ids, identity.WithVirtual(who), identity.Config{Admins: []string{"macbook-pro-44"}, AdminLogins: adminLogins, Now: cfg.Now})
 	// Tests opt in to scheduled briefings so a sweep does not depend on
 	// the wall time of the machine running the suite.

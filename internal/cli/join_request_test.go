@@ -629,8 +629,6 @@ func TestJoinRequestRelayHostCommandsNeedSocket(t *testing.T) {
 	}
 }
 
-// The commands join --request prints stay pasteable when the config path
-// has a space, as macOS's default under Application Support does.
 func TestJoinRequestPrintedCommandsQuotePaths(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "Application Support", "tincan", "codex.json")
 	t.Setenv("TINCAN_CONFIG", path)

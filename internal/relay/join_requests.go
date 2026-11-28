@@ -242,9 +242,6 @@ func (s *Server) handleJoinRequestStatus(w http.ResponseWriter, r *http.Request)
 			return true
 		}
 		if jr.Status != identity.JoinPending {
-			// Nothing waits on a request past pending. A decision that
-			// landed between the first read and the waiter below left a
-			// channel no later notify would close, so drop it here.
 			s.hub.notify(joinKey(id))
 		}
 		if jr.Status != identity.JoinPending || wait == 0 {

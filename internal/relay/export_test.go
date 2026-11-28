@@ -31,9 +31,6 @@ func (s *Server) HubKeys() int {
 	return len(s.hub.ch)
 }
 
-// LeaveJoinWaiter takes a hub waiter for join request id and drops it, as a
-// status read does when a decision lands between its first read and taking
-// the waiter.
 func (s *Server) LeaveJoinWaiter(id string) { s.hub.wait(joinKey(id)) }
 
 // KeyForTest exposes the relay key to tests.
